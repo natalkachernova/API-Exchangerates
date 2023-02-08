@@ -1,10 +1,28 @@
 from flask import Flask, render_template, request
 import csv
+import json
+import requests
 
 app = Flask(__name__)
 
+response = requests.get("http://api.nbp.pl/api/exchangerates/tables/C?format=json")
+data = response.json()
+
+data_from_json = json.loads(json.dumps(data))
+
 rates = {}
 items = []
+
+def get_rates():
+    for data in data_from_json:
+        rates = data['rates']    
+
+    with open('exchangerates.csv', 'w', newline='') as csvfile:
+        fieldnames = ['currency', 'code', 'bid', 'ask']
+        writer = csv.DictWriter(csvfile, delimiter=';', fieldnames=fieldnames)
+        writer.writeheader()
+        for rate in rates:          
+            writer.writerow({'currency': rate["currency"], 'code': rate["code"], 'bid': rate["bid"], 'ask': rate["ask"]})
 
 def load_rates_from_csv():
     with open('exchangerates.csv', newline='') as csvfile:
@@ -35,6 +53,7 @@ def calculate_currency():
         costs = result_costs(amount, ask)
         result =  f"{amount} {name_currency} cost {costs} PLN"
         return render_template("calculator.html", items=items, result=result)
+    get_rates()
     load_rates_from_csv() 
     return render_template("calculator.html", items=items)
 
